@@ -46,7 +46,7 @@ where
     #[allow(unused_mut)]
     pub async fn exec<'a, C>(self, db: &'a C) -> Result<TryInsertResult<InsertResult<A>>, DbErr>
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
         A: 'a,
     {
         if self.insert_struct.columns.is_empty() {
@@ -68,7 +68,7 @@ where
     ) -> Result<TryInsertResult<u64>, DbErr>
     where
         <A::Entity as EntityTrait>::Model: IntoActiveModel<A>,
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
         A: 'a,
     {
         if self.insert_struct.columns.is_empty() {
@@ -89,7 +89,7 @@ where
     ) -> Result<TryInsertResult<<A::Entity as EntityTrait>::Model>, DbErr>
     where
         <A::Entity as EntityTrait>::Model: IntoActiveModel<A>,
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
         A: 'a,
     {
         if self.insert_struct.columns.is_empty() {
@@ -112,7 +112,7 @@ where
     #[allow(unused_mut)]
     pub fn exec<'a, C>(self, db: &'a C) -> impl Future<Output = Result<InsertResult<A>, DbErr>> + '_
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
         A: 'a,
     {
         // so that self is dropped before entering await
@@ -135,7 +135,7 @@ where
     ) -> impl Future<Output = Result<u64, DbErr>> + '_
     where
         <A::Entity as EntityTrait>::Model: IntoActiveModel<A>,
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
         A: 'a,
     {
         Inserter::<A>::new(self.primary_key, self.query).exec_without_returning(db)
@@ -148,7 +148,7 @@ where
     ) -> impl Future<Output = Result<<A::Entity as EntityTrait>::Model, DbErr>> + '_
     where
         <A::Entity as EntityTrait>::Model: IntoActiveModel<A>,
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
         A: 'a,
     {
         Inserter::<A>::new(self.primary_key, self.query).exec_with_returning(db)
@@ -171,7 +171,7 @@ where
     /// Execute an insert operation, returning the last inserted id
     pub fn exec<'a, C>(self, db: &'a C) -> impl Future<Output = Result<InsertResult<A>, DbErr>> + '_
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
         A: 'a,
     {
         let builder = db.get_database_backend();
@@ -184,7 +184,7 @@ where
         db: &'a C,
     ) -> impl Future<Output = Result<u64, DbErr>> + '_
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
         A: 'a,
     {
         exec_insert_without_returning(self.query, db)
@@ -197,7 +197,7 @@ where
     ) -> impl Future<Output = Result<<A::Entity as EntityTrait>::Model, DbErr>> + '_
     where
         <A::Entity as EntityTrait>::Model: IntoActiveModel<A>,
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
         A: 'a,
     {
         exec_insert_with_returning::<A, _>(self.primary_key, self.query, db)
@@ -210,7 +210,7 @@ async fn exec_insert<A, C>(
     db: &C,
 ) -> Result<InsertResult<A>, DbErr>
 where
-    C: ConnectionTrait,
+    C: ConnectionTrait + ?Sized,
     A: ActiveModelTrait,
 {
     type PrimaryKey<A> = <<A as ActiveModelTrait>::Entity as EntityTrait>::PrimaryKey;
@@ -254,7 +254,7 @@ async fn exec_insert_without_returning<C>(
     db: &C,
 ) -> Result<u64, DbErr>
 where
-    C: ConnectionTrait,
+    C: ConnectionTrait + ?Sized,
 {
     let db_backend = db.get_database_backend();
     let exec_result = db.execute(db_backend.build(&insert_statement)).await?;
@@ -268,7 +268,7 @@ async fn exec_insert_with_returning<A, C>(
 ) -> Result<<A::Entity as EntityTrait>::Model, DbErr>
 where
     <A::Entity as EntityTrait>::Model: IntoActiveModel<A>,
-    C: ConnectionTrait,
+    C: ConnectionTrait + ?Sized,
     A: ActiveModelTrait,
 {
     let db_backend = db.get_database_backend();

@@ -413,7 +413,7 @@ where
     /// Get one Model from the SELECT query
     pub async fn one<'a, C>(self, db: &C) -> Result<Option<E::Model>, DbErr>
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         self.into_model().one(db).await
     }
@@ -421,7 +421,7 @@ where
     /// Get all Models from the SELECT query
     pub async fn all<'a, C>(self, db: &C) -> Result<Vec<E::Model>, DbErr>
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         self.into_model().all(db).await
     }
@@ -491,7 +491,7 @@ where
     /// Get one Model from the Select query
     pub async fn one<'a, C>(self, db: &C) -> Result<Option<(E::Model, Option<F::Model>)>, DbErr>
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         self.into_model().one(db).await
     }
@@ -499,7 +499,7 @@ where
     /// Get all Models from the Select query
     pub async fn all<'a, C>(self, db: &C) -> Result<Vec<(E::Model, Option<F::Model>)>, DbErr>
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         self.into_model().all(db).await
     }
@@ -601,7 +601,7 @@ where
     /// > See https://www.sea-ql.org/SeaORM/docs/basic-crud/select#lazy-loading for details.
     pub async fn all<'a, C>(self, db: &C) -> Result<Vec<(E::Model, Vec<F::Model>)>, DbErr>
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         let rows = self.into_model().all(db).await?;
         Ok(consolidate_query_result::<E, F>(rows))
@@ -650,7 +650,7 @@ where
 
     fn into_selector_raw<C>(self, db: &C) -> SelectorRaw<S>
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         let builder = db.get_database_backend();
         let stmt = builder.build(&self.query);
@@ -668,7 +668,7 @@ where
     /// Get an item from the Select query
     pub async fn one<'a, C>(mut self, db: &C) -> Result<Option<S::Item>, DbErr>
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         self.query.limit(1);
         self.into_selector_raw(db).one(db).await
@@ -677,7 +677,7 @@ where
     /// Get all items from the Select query
     pub async fn all<'a, C>(self, db: &C) -> Result<Vec<S::Item>, DbErr>
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         self.into_selector_raw(db).all(db).await
     }
@@ -912,7 +912,7 @@ where
     /// ```
     pub async fn one<'a, C>(self, db: &C) -> Result<Option<S::Item>, DbErr>
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         let row = db.query_one(self.stmt).await?;
         match row {
@@ -963,7 +963,7 @@ where
     /// ```
     pub async fn all<'a, C>(self, db: &C) -> Result<Vec<S::Item>, DbErr>
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         let rows = db.query_all(self.stmt).await?;
         let mut models = Vec::new();
