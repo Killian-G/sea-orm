@@ -22,7 +22,7 @@ where
     /// Execute a DELETE operation on one ActiveModel
     pub fn exec<C>(self, db: &'a C) -> impl Future<Output = Result<DeleteResult, DbErr>> + '_
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         // so that self is dropped before entering await
         exec_delete_only(self.query, db)
@@ -36,7 +36,7 @@ where
     /// Execute a DELETE operation on many ActiveModels
     pub fn exec<C>(self, db: &'a C) -> impl Future<Output = Result<DeleteResult, DbErr>> + '_
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         // so that self is dropped before entering await
         exec_delete_only(self.query, db)
@@ -52,7 +52,7 @@ impl Deleter {
     /// Execute a DELETE operation
     pub fn exec<C>(self, db: &C) -> impl Future<Output = Result<DeleteResult, DbErr>> + '_
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         exec_delete(self.query, db)
     }
@@ -60,14 +60,14 @@ impl Deleter {
 
 async fn exec_delete_only<C>(query: DeleteStatement, db: &C) -> Result<DeleteResult, DbErr>
 where
-    C: ConnectionTrait,
+    C: ConnectionTrait + ?Sized,
 {
     Deleter::new(query).exec(db).await
 }
 
 async fn exec_delete<C>(query: DeleteStatement, db: &C) -> Result<DeleteResult, DbErr>
 where
-    C: ConnectionTrait,
+    C: ConnectionTrait + ?Sized,
 {
     let builder = db.get_database_backend();
     let statement = builder.build(&query);

@@ -26,7 +26,7 @@ where
     pub async fn exec<'b, C>(self, db: &'b C) -> Result<<A::Entity as EntityTrait>::Model, DbErr>
     where
         <A::Entity as EntityTrait>::Model: IntoActiveModel<A>,
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         Updater::new(self.query)
             .exec_update_and_return_updated(self.model, db)
@@ -41,7 +41,7 @@ where
     /// Execute an update operation on multiple ActiveModels
     pub async fn exec<C>(self, db: &'a C) -> Result<UpdateResult, DbErr>
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         Updater::new(self.query).exec(db).await
     }
@@ -53,7 +53,7 @@ where
     /// Panics if the database backend does not support `UPDATE RETURNING`.
     pub async fn exec_with_returning<C>(self, db: &'a C) -> Result<Vec<E::Model>, DbErr>
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         Updater::new(self.query)
             .exec_update_with_returning::<E, _>(db)
@@ -79,7 +79,7 @@ impl Updater {
     /// Execute an update operation
     pub async fn exec<C>(self, db: &C) -> Result<UpdateResult, DbErr>
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         if self.is_noop() {
             return Ok(UpdateResult::default());
@@ -102,7 +102,7 @@ impl Updater {
     ) -> Result<<A::Entity as EntityTrait>::Model, DbErr>
     where
         A: ActiveModelTrait,
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         type Entity<A> = <A as ActiveModelTrait>::Entity;
         type Model<A> = <Entity<A> as EntityTrait>::Model;
@@ -141,7 +141,7 @@ impl Updater {
     async fn exec_update_with_returning<E, C>(mut self, db: &C) -> Result<Vec<E::Model>, DbErr>
     where
         E: EntityTrait,
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         if self.is_noop() {
             return Ok(vec![]);
@@ -176,7 +176,7 @@ async fn find_updated_model_by_id<A, C>(
 ) -> Result<<A::Entity as EntityTrait>::Model, DbErr>
 where
     A: ActiveModelTrait,
-    C: ConnectionTrait,
+    C: ConnectionTrait + ?Sized,
 {
     type Entity<A> = <A as ActiveModelTrait>::Entity;
     type ValueType<A> = <<Entity<A> as EntityTrait>::PrimaryKey as PrimaryKeyTrait>::ValueType;

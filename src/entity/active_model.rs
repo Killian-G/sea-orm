@@ -277,7 +277,7 @@ pub trait ActiveModelTrait: Clone + Debug {
     where
         <Self::Entity as EntityTrait>::Model: IntoActiveModel<Self>,
         Self: ActiveModelBehavior + 'a,
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         let am = ActiveModelBehavior::before_save(self, db, true).await?;
         let model = <Self::Entity as EntityTrait>::insert(am)
@@ -399,7 +399,7 @@ pub trait ActiveModelTrait: Clone + Debug {
     where
         <Self::Entity as EntityTrait>::Model: IntoActiveModel<Self>,
         Self: ActiveModelBehavior + 'a,
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         let am = ActiveModelBehavior::before_save(self, db, false).await?;
         let model: <Self::Entity as EntityTrait>::Model = Self::Entity::update(am).exec(db).await?;
@@ -412,7 +412,7 @@ pub trait ActiveModelTrait: Clone + Debug {
     where
         <Self::Entity as EntityTrait>::Model: IntoActiveModel<Self>,
         Self: ActiveModelBehavior + 'a,
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         let mut is_update = true;
         for key in <Self::Entity as EntityTrait>::PrimaryKey::iter() {
@@ -476,7 +476,7 @@ pub trait ActiveModelTrait: Clone + Debug {
     async fn delete<'a, C>(self, db: &'a C) -> Result<DeleteResult, DbErr>
     where
         Self: ActiveModelBehavior + 'a,
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         let am = ActiveModelBehavior::before_delete(self, db).await?;
         let am_clone = am.clone();
@@ -598,7 +598,7 @@ pub trait ActiveModelBehavior: ActiveModelTrait {
     /// Will be called before `ActiveModel::insert`, `ActiveModel::update`, and `ActiveModel::save`
     async fn before_save<C>(self, db: &C, insert: bool) -> Result<Self, DbErr>
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         Ok(self)
     }
@@ -610,7 +610,7 @@ pub trait ActiveModelBehavior: ActiveModelTrait {
         insert: bool,
     ) -> Result<<Self::Entity as EntityTrait>::Model, DbErr>
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         Ok(model)
     }
@@ -618,7 +618,7 @@ pub trait ActiveModelBehavior: ActiveModelTrait {
     /// Will be called before `ActiveModel::delete`
     async fn before_delete<C>(self, db: &C) -> Result<Self, DbErr>
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         Ok(self)
     }
@@ -626,7 +626,7 @@ pub trait ActiveModelBehavior: ActiveModelTrait {
     /// Will be called after `ActiveModel::delete`
     async fn after_delete<C>(self, db: &C) -> Result<Self, DbErr>
     where
-        C: ConnectionTrait,
+        C: ConnectionTrait + ?Sized,
     {
         Ok(self)
     }
