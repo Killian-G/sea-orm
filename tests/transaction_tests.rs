@@ -1,3 +1,5 @@
+#![allow(unused_imports, dead_code)]
+
 pub mod common;
 
 pub use common::{bakery_chain::*, setup::*, TestContext};
@@ -5,11 +7,6 @@ use pretty_assertions::assert_eq;
 use sea_orm::{prelude::*, AccessMode, DatabaseTransaction, IsolationLevel, Set, TransactionTrait};
 
 #[sea_orm_macros::test]
-#[cfg(any(
-    feature = "sqlx-mysql",
-    feature = "sqlx-sqlite",
-    feature = "sqlx-postgres"
-))]
 pub async fn transaction() {
     let ctx = TestContext::new("transaction_test").await;
     create_tables(&ctx.db).await.unwrap();
@@ -50,11 +47,6 @@ pub async fn transaction() {
 }
 
 #[sea_orm_macros::test]
-#[cfg(any(
-    feature = "sqlx-mysql",
-    feature = "sqlx-sqlite",
-    feature = "sqlx-postgres"
-))]
 pub async fn transaction_with_reference() {
     let ctx = TestContext::new("transaction_with_reference_test").await;
     create_tables(&ctx.db).await.unwrap();
@@ -105,11 +97,6 @@ fn _transaction_with_reference<'a>(
 }
 
 #[sea_orm_macros::test]
-#[cfg(any(
-    feature = "sqlx-mysql",
-    feature = "sqlx-sqlite",
-    feature = "sqlx-postgres"
-))]
 pub async fn transaction_begin_out_of_scope() -> Result<(), DbErr> {
     let ctx = TestContext::new("transaction_begin_out_of_scope_test").await;
     create_tables(&ctx.db).await?;
@@ -150,11 +137,6 @@ pub async fn transaction_begin_out_of_scope() -> Result<(), DbErr> {
 }
 
 #[sea_orm_macros::test]
-#[cfg(any(
-    feature = "sqlx-mysql",
-    feature = "sqlx-sqlite",
-    feature = "sqlx-postgres"
-))]
 pub async fn transaction_begin_commit() -> Result<(), DbErr> {
     let ctx = TestContext::new("transaction_begin_commit_test").await;
     create_tables(&ctx.db).await?;
@@ -196,11 +178,6 @@ pub async fn transaction_begin_commit() -> Result<(), DbErr> {
 }
 
 #[sea_orm_macros::test]
-#[cfg(any(
-    feature = "sqlx-mysql",
-    feature = "sqlx-sqlite",
-    feature = "sqlx-postgres"
-))]
 pub async fn transaction_begin_rollback() -> Result<(), DbErr> {
     let ctx = TestContext::new("transaction_begin_rollback_test").await;
     create_tables(&ctx.db).await?;
@@ -242,11 +219,6 @@ pub async fn transaction_begin_rollback() -> Result<(), DbErr> {
 }
 
 #[sea_orm_macros::test]
-#[cfg(any(
-    feature = "sqlx-mysql",
-    feature = "sqlx-sqlite",
-    feature = "sqlx-postgres"
-))]
 pub async fn transaction_closure_commit() -> Result<(), DbErr> {
     let ctx = TestContext::new("transaction_closure_commit_test").await;
     create_tables(&ctx.db).await?;
@@ -291,11 +263,6 @@ pub async fn transaction_closure_commit() -> Result<(), DbErr> {
 }
 
 #[sea_orm_macros::test]
-#[cfg(any(
-    feature = "sqlx-mysql",
-    feature = "sqlx-sqlite",
-    feature = "sqlx-postgres"
-))]
 pub async fn transaction_closure_rollback() -> Result<(), DbErr> {
     let ctx = TestContext::new("transaction_closure_rollback_test").await;
     create_tables(&ctx.db).await?;
@@ -352,11 +319,6 @@ pub async fn transaction_closure_rollback() -> Result<(), DbErr> {
 }
 
 #[sea_orm_macros::test]
-#[cfg(any(
-    feature = "sqlx-mysql",
-    feature = "sqlx-sqlite",
-    feature = "sqlx-postgres"
-))]
 pub async fn transaction_with_active_model_behaviour() -> Result<(), DbErr> {
     let ctx = TestContext::new("transaction_with_active_model_behaviour_test").await;
     create_tables(&ctx.db).await?;
@@ -440,11 +402,6 @@ pub async fn transaction_with_active_model_behaviour() -> Result<(), DbErr> {
 }
 
 #[sea_orm_macros::test]
-#[cfg(any(
-    feature = "sqlx-mysql",
-    feature = "sqlx-sqlite",
-    feature = "sqlx-postgres"
-))]
 pub async fn transaction_nested() {
     let ctx = TestContext::new("transaction_nested_test").await;
     create_tables(&ctx.db).await.unwrap();
@@ -692,11 +649,6 @@ pub async fn transaction_nested() {
 }
 
 #[sea_orm_macros::test]
-#[cfg(any(
-    feature = "sqlx-mysql",
-    feature = "sqlx-sqlite",
-    feature = "sqlx-postgres"
-))]
 pub async fn transaction_with_config() {
     let ctx = TestContext::new("transaction_with_config").await;
     create_tables(&ctx.db).await.unwrap();

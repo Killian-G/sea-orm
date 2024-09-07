@@ -1,3 +1,4 @@
+use futures::lock::Mutex;
 use log::LevelFilter;
 use sea_query::Values;
 use std::{future::Future, pin::Pin, sync::Arc};
@@ -65,26 +66,33 @@ impl SqlxSqliteConnector {
                 );
             }
         }
+
         if options.get_max_connections().is_none() {
             options.max_connections(1);
         }
-        match options.pool_options().connect_with(opt).await {
-            Ok(pool) => {
-                let pool = SqlxSqlitePoolConnection {
-                    pool,
-                    metric_callback: None,
-                };
 
-                #[cfg(feature = "sqlite-use-returning-for-3_35")]
-                {
-                    let version = get_version(&pool).await?;
-                    ensure_returning_version(&version)?;
-                }
+        let pool = if options.connect_lazy {
+            options.sqlx_pool_options().connect_lazy_with(opt)
+        } else {
+            options
+                .sqlx_pool_options()
+                .connect_with(opt)
+                .await
+                .map_err(sqlx_error_to_conn_err)?
+        };
 
-                Ok(DatabaseConnection::SqlxSqlitePoolConnection(pool))
-            }
-            Err(e) => Err(sqlx_error_to_conn_err(e)),
+        let pool = SqlxSqlitePoolConnection {
+            pool,
+            metric_callback: None,
+        };
+
+        #[cfg(feature = "sqlite-use-returning-for-3_35")]
+        {
+            let version = get_version(&pool).await?;
+            ensure_returning_version(&version)?;
         }
+
+        Ok(DatabaseConnection::SqlxSqlitePoolConnection(pool))
     }
 }
 
@@ -105,7 +113,7 @@ impl SqlxSqlitePoolConnection {
         debug_print!("{}", stmt);
 
         let query = sqlx_query(&stmt);
-        let mut conn = self.pool.acquire().await.map_err(conn_acquire_err)?;
+        let mut conn = self.pool.acquire().await.map_err(sqlx_conn_acquire_err)?;
         crate::metric::metric!(self.metric_callback, &stmt, {
             match query.execute(&mut *conn).await {
                 Ok(res) => Ok(res.into()),
@@ -119,7 +127,7 @@ impl SqlxSqlitePoolConnection {
     pub async fn execute_unprepared(&self, sql: &str) -> Result<ExecResult, DbErr> {
         debug_print!("{}", sql);
 
-        let conn = &mut self.pool.acquire().await.map_err(conn_acquire_err)?;
+        let conn = &mut self.pool.acquire().await.map_err(sqlx_conn_acquire_err)?;
         match conn.execute(sql).await {
             Ok(res) => Ok(res.into()),
             Err(err) => Err(sqlx_error_to_exec_err(err)),
@@ -132,7 +140,7 @@ impl SqlxSqlitePoolConnection {
         debug_print!("{}", stmt);
 
         let query = sqlx_query(&stmt);
-        let mut conn = self.pool.acquire().await.map_err(conn_acquire_err)?;
+        let mut conn = self.pool.acquire().await.map_err(sqlx_conn_acquire_err)?;
         crate::metric::metric!(self.metric_callback, &stmt, {
             match query.fetch_one(&mut *conn).await {
                 Ok(row) => Ok(Some(row.into())),
@@ -150,7 +158,7 @@ impl SqlxSqlitePoolConnection {
         debug_print!("{}", stmt);
 
         let query = sqlx_query(&stmt);
-        let mut conn = self.pool.acquire().await.map_err(conn_acquire_err)?;
+        let mut conn = self.pool.acquire().await.map_err(sqlx_conn_acquire_err)?;
         crate::metric::metric!(self.metric_callback, &stmt, {
             match query.fetch_all(&mut *conn).await {
                 Ok(rows) => Ok(rows.into_iter().map(|r| r.into()).collect()),
@@ -164,7 +172,7 @@ impl SqlxSqlitePoolConnection {
     pub async fn stream(&self, stmt: Statement) -> Result<QueryStream, DbErr> {
         debug_print!("{}", stmt);
 
-        let conn = self.pool.acquire().await.map_err(conn_acquire_err)?;
+        let conn = self.pool.acquire().await.map_err(sqlx_conn_acquire_err)?;
         Ok(QueryStream::from((
             conn,
             stmt,
@@ -179,7 +187,7 @@ impl SqlxSqlitePoolConnection {
         isolation_level: Option<IsolationLevel>,
         access_mode: Option<AccessMode>,
     ) -> Result<DatabaseTransaction, DbErr> {
-        let conn = self.pool.acquire().await.map_err(conn_acquire_err)?;
+        let conn = self.pool.acquire().await.map_err(sqlx_conn_acquire_err)?;
         DatabaseTransaction::new_sqlite(
             conn,
             self.metric_callback.clone(),
@@ -205,7 +213,7 @@ impl SqlxSqlitePoolConnection {
         T: Send,
         E: std::error::Error + Send,
     {
-        let conn = self.pool.acquire().await.map_err(conn_acquire_err)?;
+        let conn = self.pool.acquire().await.map_err(sqlx_conn_acquire_err)?;
         let transaction = DatabaseTransaction::new_sqlite(
             conn,
             self.metric_callback.clone(),
@@ -226,7 +234,7 @@ impl SqlxSqlitePoolConnection {
 
     /// Checks if a connection to the database is still valid.
     pub async fn ping(&self) -> Result<(), DbErr> {
-        let conn = &mut self.pool.acquire().await.map_err(conn_acquire_err)?;
+        let conn = &mut self.pool.acquire().await.map_err(sqlx_conn_acquire_err)?;
         match conn.ping().await {
             Ok(_) => Ok(()),
             Err(err) => Err(sqlx_error_to_conn_err(err)),
@@ -322,6 +330,115 @@ fn ensure_returning_version(version: &str) -> Result<(), DbErr> {
         Err(DbErr::Conn(RuntimeErr::Internal(
             "SQLite version does not support returning".to_string(),
         )))
+    }
+}
+
+impl
+    From<(
+        PoolConnection<sqlx::Sqlite>,
+        Statement,
+        Option<crate::metric::Callback>,
+    )> for crate::QueryStream
+{
+    fn from(
+        (conn, stmt, metric_callback): (
+            PoolConnection<sqlx::Sqlite>,
+            Statement,
+            Option<crate::metric::Callback>,
+        ),
+    ) -> Self {
+        crate::QueryStream::build(stmt, crate::InnerConnection::Sqlite(conn), metric_callback)
+    }
+}
+
+impl crate::DatabaseTransaction {
+    pub(crate) async fn new_sqlite(
+        inner: PoolConnection<sqlx::Sqlite>,
+        metric_callback: Option<crate::metric::Callback>,
+        isolation_level: Option<IsolationLevel>,
+        access_mode: Option<AccessMode>,
+    ) -> Result<crate::DatabaseTransaction, DbErr> {
+        Self::begin(
+            Arc::new(Mutex::new(crate::InnerConnection::Sqlite(inner))),
+            crate::DbBackend::Sqlite,
+            metric_callback,
+            isolation_level,
+            access_mode,
+        )
+        .await
+    }
+}
+
+#[cfg(feature = "proxy")]
+pub(crate) fn from_sqlx_sqlite_row_to_proxy_row(row: &sqlx::sqlite::SqliteRow) -> crate::ProxyRow {
+    // https://docs.rs/sqlx-sqlite/0.7.2/src/sqlx_sqlite/type_info.rs.html
+    // https://docs.rs/sqlx-sqlite/0.7.2/sqlx_sqlite/types/index.html
+    use sea_query::Value;
+    use sqlx::{Column, Row, TypeInfo};
+    crate::ProxyRow {
+        values: row
+            .columns()
+            .iter()
+            .map(|c| {
+                (
+                    c.name().to_string(),
+                    match c.type_info().name() {
+                        "BOOLEAN" => Value::Bool(Some(
+                            row.try_get(c.ordinal()).expect("Failed to get boolean"),
+                        )),
+
+                        "INTEGER" => Value::Int(Some(
+                            row.try_get(c.ordinal()).expect("Failed to get integer"),
+                        )),
+
+                        "BIGINT" | "INT8" => Value::BigInt(Some(
+                            row.try_get(c.ordinal()).expect("Failed to get big integer"),
+                        )),
+
+                        "REAL" => Value::Double(Some(
+                            row.try_get(c.ordinal()).expect("Failed to get double"),
+                        )),
+
+                        "TEXT" => Value::String(Some(Box::new(
+                            row.try_get(c.ordinal()).expect("Failed to get string"),
+                        ))),
+
+                        "BLOB" => Value::Bytes(Some(Box::new(
+                            row.try_get(c.ordinal()).expect("Failed to get bytes"),
+                        ))),
+
+                        #[cfg(feature = "with-chrono")]
+                        "DATETIME" => Value::ChronoDateTimeUtc(Some(Box::new(
+                            row.try_get(c.ordinal()).expect("Failed to get timestamp"),
+                        ))),
+                        #[cfg(all(feature = "with-time", not(feature = "with-chrono")))]
+                        "DATETIME" => Value::TimeDateTimeWithTimeZone(Some(Box::new(
+                            row.try_get(c.ordinal()).expect("Failed to get timestamp"),
+                        ))),
+
+                        #[cfg(feature = "with-chrono")]
+                        "DATE" => Value::ChronoDate(Some(Box::new(
+                            row.try_get(c.ordinal()).expect("Failed to get date"),
+                        ))),
+                        #[cfg(all(feature = "with-time", not(feature = "with-chrono")))]
+                        "DATE" => Value::TimeDate(Some(Box::new(
+                            row.try_get(c.ordinal()).expect("Failed to get date"),
+                        ))),
+
+                        #[cfg(feature = "with-chrono")]
+                        "TIME" => Value::ChronoTime(Some(Box::new(
+                            row.try_get(c.ordinal()).expect("Failed to get time"),
+                        ))),
+                        #[cfg(all(feature = "with-time", not(feature = "with-chrono")))]
+                        "TIME" => Value::TimeTime(Some(Box::new(
+                            row.try_get(c.ordinal()).expect("Failed to get time"),
+                        ))),
+
+                        _ => unreachable!("Unknown column type: {}", c.type_info().name()),
+                    },
+                )
+            })
+            .collect(),
     }
 }
 

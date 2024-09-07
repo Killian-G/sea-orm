@@ -1,3 +1,5 @@
+#![allow(unused_imports, dead_code)]
+
 pub mod common;
 
 pub use chrono::offset::Utc;
@@ -11,11 +13,6 @@ pub use uuid::Uuid;
 // Run the test locally:
 // DATABASE_URL="mysql://root:@localhost" cargo test --features sqlx-mysql,runtime-async-std-native-tls --test relational_tests
 #[sea_orm_macros::test]
-#[cfg(any(
-    feature = "sqlx-mysql",
-    feature = "sqlx-sqlite",
-    feature = "sqlx-postgres"
-))]
 pub async fn left_join() {
     let ctx = TestContext::new("test_left_join").await;
     create_tables(&ctx.db).await.unwrap();
@@ -200,11 +197,6 @@ pub async fn right_join() {
 }
 
 #[sea_orm_macros::test]
-#[cfg(any(
-    feature = "sqlx-mysql",
-    feature = "sqlx-sqlite",
-    feature = "sqlx-postgres"
-))]
 pub async fn inner_join() {
     let ctx = TestContext::new("test_inner_join").await;
     create_tables(&ctx.db).await.unwrap();
@@ -290,11 +282,6 @@ pub async fn inner_join() {
 }
 
 #[sea_orm_macros::test]
-#[cfg(any(
-    feature = "sqlx-mysql",
-    feature = "sqlx-sqlite",
-    feature = "sqlx-postgres"
-))]
 pub async fn group_by() {
     let ctx = TestContext::new("test_group_by").await;
     create_tables(&ctx.db).await.unwrap();
@@ -340,10 +327,15 @@ pub async fn group_by() {
     .await
     .expect("could not insert order");
 
+    #[cfg(any(feature = "sqlx-postgres"))]
+    type Type = i64;
+    #[cfg(not(any(feature = "sqlx-postgres")))]
+    type Type = i32;
+
     #[derive(Debug, FromQueryResult)]
     struct SelectResult {
         name: String,
-        number_orders: Option<i64>,
+        number_orders: Option<Type>,
         total_spent: Option<Decimal>,
         min_spent: Option<Decimal>,
         max_spent: Option<Decimal>,
@@ -384,11 +376,6 @@ pub async fn group_by() {
 }
 
 #[sea_orm_macros::test]
-#[cfg(any(
-    feature = "sqlx-mysql",
-    feature = "sqlx-sqlite",
-    feature = "sqlx-postgres"
-))]
 pub async fn having() {
     // customers with orders with total equal to $90
     let ctx = TestContext::new("test_having").await;
@@ -494,11 +481,6 @@ pub async fn having() {
 }
 
 #[sea_orm_macros::test]
-#[cfg(any(
-    feature = "sqlx-mysql",
-    feature = "sqlx-sqlite",
-    feature = "sqlx-postgres"
-))]
 pub async fn related() -> Result<(), DbErr> {
     use sea_orm::{SelectA, SelectB};
 
@@ -743,11 +725,6 @@ pub async fn related() -> Result<(), DbErr> {
 }
 
 #[sea_orm_macros::test]
-#[cfg(any(
-    feature = "sqlx-mysql",
-    feature = "sqlx-sqlite",
-    feature = "sqlx-postgres"
-))]
 pub async fn linked() -> Result<(), DbErr> {
     use common::bakery_chain::Order;
     use sea_orm::{SelectA, SelectB};
